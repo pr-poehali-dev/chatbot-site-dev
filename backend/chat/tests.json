@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "Chat responds to user message",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": "Привет, у меня салон красоты",
+        "messages": [],
+        "userData": {}
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "reply": "string",
+        "userData": "object"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

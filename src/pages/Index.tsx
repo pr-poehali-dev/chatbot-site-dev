@@ -5,9 +5,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import AnimatedIcons from '@/components/AnimatedIcons';
+import ChatBot from '@/components/ChatBot';
 
 const Index = () => {
   const { toast } = useToast();
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     telegram: '',
@@ -67,6 +70,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <AnimatedIcons />
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-500/10 via-background to-background pointer-events-none" />
       
       <div className="relative z-10">
@@ -88,13 +92,22 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="neon-border bg-cyan-500 hover:bg-cyan-600 text-background text-lg px-8">
+              <Button 
+                size="lg" 
+                className="neon-border bg-cyan-500 hover:bg-cyan-600 text-background text-lg px-8"
+                onClick={() => setIsChatOpen(true)}
+              >
                 <Icon name="MessageSquare" size={20} className="mr-2" />
-                Написать в Telegram
+                Поговорить с AI-консультантом
               </Button>
-              <Button size="lg" variant="outline" className="glass glass-hover text-lg px-8">
-                <Icon name="Play" size={20} className="mr-2" />
-                Пройти квиз
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="glass glass-hover text-lg px-8"
+                onClick={() => window.open('https://t.me/yourusername', '_blank')}
+              >
+                <Icon name="Send" size={20} className="mr-2" />
+                Написать в Telegram
               </Button>
             </div>
           </div>
@@ -263,6 +276,7 @@ const Index = () => {
           </div>
         </footer>
       </div>
+      {isChatOpen && <ChatBot onClose={() => setIsChatOpen(false)} />}
     </div>
   );
 };
