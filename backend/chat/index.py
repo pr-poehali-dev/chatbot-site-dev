@@ -4,23 +4,6 @@ import re
 from typing import Dict, Any, List
 import psycopg2
 import requests
-import uuid
-import time
-
-def get_gigachat_token(client_secret: str) -> str:
-    '''Получает access token для GigaChat'''
-    response = requests.post(
-        'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
-        headers={
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
-            'RqUID': str(uuid.uuid4()),
-            'Authorization': f'Basic {client_secret}'
-        },
-        data={'scope': 'GIGACHAT_API_PERS'},
-        verify=False
-    )
-    return response.json()['access_token']
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -70,29 +53,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     messages.append({'role': 'user', 'content': user_message})
     
-    gigachat_key = os.environ.get('GIGACHAT_API_KEY')
+    vsegpt_key = os.environ.get('VSEGPT_API_KEY')
     
     try:
-        access_token = get_gigachat_token(gigachat_key)
-        
-        gigachat_response = requests.post(
-            'https://gigachat.devices.sberbank.ru/api/v1/chat/completions',
+        vsegpt_response = requests.post(
+            'https://api.vsegpt.ru/v1/chat/completions',
             headers={
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': f'Bearer {access_token}'
+                'Authorization': f'Bearer {vsegpt_key}'
             },
             json={
-                'model': 'GigaChat',
+                'model': 'openai/gpt-4o-mini',
                 'messages': messages,
                 'temperature': 0.7,
                 'max_tokens': 300
             },
-            verify=False,
-            timeout=10
+            timeout=15
         )
         
-        result = gigachat_response.json()
+        result = vsegpt_response.json()
         reply = result['choices'][0]['message']['content']
         
     except:

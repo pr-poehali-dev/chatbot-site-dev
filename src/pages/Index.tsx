@@ -11,6 +11,7 @@ import ChatBot from '@/components/ChatBot';
 const Index = () => {
   const { toast } = useToast();
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     telegram: '',
@@ -95,7 +96,10 @@ const Index = () => {
               <Button 
                 size="lg" 
                 className="neon-border bg-cyan-500 hover:bg-cyan-600 text-background text-lg px-8"
-                onClick={() => setIsChatOpen(true)}
+                onClick={() => {
+                  setIsChatOpen(true);
+                  setIsChatMinimized(false);
+                }}
               >
                 <Icon name="MessageSquare" size={20} className="mr-2" />
                 Поговорить с AI-консультантом
@@ -276,7 +280,13 @@ const Index = () => {
           </div>
         </footer>
       </div>
-      {isChatOpen && <ChatBot onClose={() => setIsChatOpen(false)} />}
+      {isChatOpen && (
+        <ChatBot 
+          onClose={() => setIsChatOpen(false)} 
+          isMinimized={isChatMinimized}
+          onToggleMinimize={() => setIsChatMinimized(!isChatMinimized)}
+        />
+      )}
     </div>
   );
 };

@@ -11,9 +11,11 @@ interface Message {
 
 interface ChatBotProps {
   onClose: () => void;
+  isMinimized: boolean;
+  onToggleMinimize: () => void;
 }
 
-const ChatBot = ({ onClose }: ChatBotProps) => {
+const ChatBot = ({ onClose, isMinimized, onToggleMinimize }: ChatBotProps) => {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'assistant', 
@@ -79,9 +81,22 @@ const ChatBot = ({ onClose }: ChatBotProps) => {
     }
   };
 
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={onToggleMinimize}
+          className="w-16 h-16 rounded-full bg-cyan-500 hover:bg-cyan-600 text-background shadow-lg neon-border flex items-center justify-center transition-transform hover:scale-110 animate-pulse"
+        >
+          <Icon name="Bot" size={28} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="glass w-full max-w-2xl h-[600px] flex flex-col border-cyan-500/30">
+    <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+      <Card className="glass w-[400px] h-[600px] flex flex-col border-cyan-500/30 shadow-2xl">
         <div className="flex items-center justify-between p-4 border-b border-border/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center">
@@ -92,9 +107,14 @@ const ChatBot = ({ onClose }: ChatBotProps) => {
               <p className="text-xs text-muted-foreground">Подберу решение под ваш бизнес</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <Icon name="X" size={20} />
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="icon" onClick={onToggleMinimize}>
+              <Icon name="Minimize2" size={18} />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <Icon name="X" size={20} />
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
