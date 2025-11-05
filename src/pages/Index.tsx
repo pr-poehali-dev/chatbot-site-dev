@@ -82,7 +82,7 @@ const Index = () => {
               <span>Telegram • AI • Автоматизация</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold leading-tight">
+            <h1 className="md:text-7xl leading-tight text-6xl font-black">
               Чат-боты и AI-системы,
               <br />
               <span className="neon-glow text-cyan-400">которые работают вместо вас</span>
