@@ -3,35 +3,11 @@ import os
 import re
 from typing import Dict, Any, List
 import psycopg2
-
-def generate_smart_reply(user_message: str, user_data: Dict, message_count: int) -> str:
-    '''Генерирует умный ответ на основе контекста'''
-    msg_lower = user_message.lower()
-    
-    if message_count == 1:
-        if any(word in msg_lower for word in ['салон', 'красот', 'маникюр', 'парикмахер']):
-            return "Отлично! Для салонов красоты я создаю ботов для автоматической записи. Клиенты сами выбирают мастера, услугу и время — без звонков менеджеру. Хотите, расскажу подробнее?"
-        elif any(word in msg_lower for word in ['школ', 'курс', 'обучени', 'образован']):
-            return "Супер! Для онлайн-школ делаю ботов с автозаписью на курсы, приемом оплаты и выдачей доступов. Ученики получают всё автоматически. Интересно?"
-        elif any(word in msg_lower for word in ['магазин', 'продаж', 'товар', 'интернет-магазин']):
-            return "Здорово! Могу сделать AI-консультанта для вашего магазина — он подбирает товары, отвечает на вопросы и оформляет заказы. До 70% запросов обрабатывает без менеджера. Расскажу больше?"
-        else:
-            return "Интересно! Расскажите подробнее, чем занимаетесь? Какие задачи хотите автоматизировать?"
-    
-    if 'да' in msg_lower or 'интересно' in msg_lower or 'расскажи' in msg_lower:
-        return "Отлично! Процесс простой: вы оставляете заявку → я готовлю сценарий работы бота → запускаем за 3-7 дней. Как вас зовут?"
-    
-    if not user_data.get('name'):
-        return "Приятно познакомиться! А как с вами связаться? Укажите ваш Telegram, пожалуйста."
-    
-    if not user_data.get('telegram'):
-        return "Отлично! Я свяжусь с вами в ближайшее время и подготовлю индивидуальное предложение. Ожидайте сообщение в Telegram!"
-    
-    return "Спасибо за заявку! Скоро свяжусь с вами в Telegram и обсудим детали. До скорой встречи! 👋"
+import requests
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: Чат-бот консультант для продажи ботов и сбора заявок
+    Business: AI чат-бот консультант для продажи ботов и сбора заявок
     Args: event - dict с message, messages, userData
     Returns: HTTP response с reply и обновленными userData
     '''
@@ -54,7 +30,65 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     chat_history: List[Dict] = body.get('messages', [])
     user_data: Dict = body.get('userData', {})
     
-    message_count = len([m for m in chat_history if m['role'] == 'user']) + 1
+    system_prompt = """Ты AI-консультант по автоматизации бизнеса через Telegram-ботов и AI-агентов.
+
+Твоя задача:
+1. Понять нишу клиента и его боли
+2. Предложить подходящее решение (бот для записи, AI-консультант, интеграция с CRM и т.д.)
+3. Собрать контакты: имя, Telegram, ниша бизнеса
+4. Мотивировать оставить заявку
+
+Стиль общения:
+- Дружелюбный и профессиональный
+- Короткие сообщения (2-3 предложения)
+- Задавай уточняющие вопросы
+- Покажи выгоду и результаты
+
+Если собрал имя, telegram и нишу - предложи оставить заявку и попрощайся."""
+    
+    messages = []
+    for msg in chat_history:
+        if msg['role'] == 'user':
+            messages.append({'role': 'user', 'text': msg['content']})
+        elif msg['role'] == 'assistant':
+            messages.append({'role': 'assistant', 'text': msg['content']})
+    
+    messages.append({'role': 'user', 'text': user_message})
+    
+    api_key = os.environ.get('YANDEX_API_KEY')
+    folder_id = os.environ.get('YANDEX_FOLDER_ID')
+    
+    try:
+        yandex_response = requests.post(
+            'https://llm.api.cloud.yandex.net/foundationModels/v1/completion',
+            headers={
+                'Authorization': f'Api-Key {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'modelUri': f'gpt://{folder_id}/yandexgpt-lite/latest',
+                'completionOptions': {
+                    'stream': False,
+                    'temperature': 0.7,
+                    'maxTokens': 300
+                },
+                'messages': [
+                    {'role': 'system', 'text': system_prompt}
+                ] + messages
+            },
+            timeout=30
+        )
+        
+        result = yandex_response.json()
+        
+        if 'result' in result:
+            reply = result['result']['alternatives'][0]['message']['text']
+        elif 'error' in result:
+            reply = f"Извините, возникла ошибка: {result['error'].get('message', 'неизвестная ошибка')}"
+        else:
+            reply = "Извините, не могу ответить сейчас. Попробуйте позже или напишите напрямую."
+    except Exception as e:
+        reply = f"Извините, сервис временно недоступен. Напишите мне напрямую в Telegram!"
     
     if not user_data.get('name'):
         name_patterns = [
@@ -91,8 +125,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if any(kw in user_message.lower() for kw in keywords):
                 user_data['niche'] = niche_name
                 break
-    
-    reply = generate_smart_reply(user_message, user_data, message_count)
     
     if all([user_data.get('name'), user_data.get('telegram')]):
         try:
