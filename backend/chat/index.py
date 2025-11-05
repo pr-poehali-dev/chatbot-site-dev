@@ -4,6 +4,23 @@ import re
 from typing import Dict, Any, List
 import psycopg2
 import requests
+import uuid
+import time
+
+def get_gigachat_token(client_secret: str) -> str:
+    '''Получает access token для GigaChat'''
+    response = requests.post(
+        'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
+        headers={
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+            'RqUID': str(uuid.uuid4()),
+            'Authorization': f'Basic {client_secret}'
+        },
+        data={'scope': 'GIGACHAT_API_PERS'},
+        verify=False
+    )
+    return response.json()['access_token']
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -46,49 +63,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 Если собрал имя, telegram и нишу - предложи оставить заявку и попрощайся."""
     
-    messages = []
+    messages = [{'role': 'system', 'content': system_prompt}]
     for msg in chat_history:
-        if msg['role'] == 'user':
-            messages.append({'role': 'user', 'text': msg['content']})
-        elif msg['role'] == 'assistant':
-            messages.append({'role': 'assistant', 'text': msg['content']})
+        if msg['role'] in ['user', 'assistant']:
+            messages.append({'role': msg['role'], 'content': msg['content']})
     
-    messages.append({'role': 'user', 'text': user_message})
+    messages.append({'role': 'user', 'content': user_message})
     
-    api_key = os.environ.get('YANDEX_API_KEY')
-    folder_id = os.environ.get('YANDEX_FOLDER_ID')
+    gigachat_key = os.environ.get('GIGACHAT_API_KEY')
     
     try:
-        yandex_response = requests.post(
-            'https://llm.api.cloud.yandex.net/foundationModels/v1/completion',
+        access_token = get_gigachat_token(gigachat_key)
+        
+        gigachat_response = requests.post(
+            'https://gigachat.devices.sberbank.ru/api/v1/chat/completions',
             headers={
-                'Authorization': f'Api-Key {api_key}',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {access_token}'
             },
             json={
-                'modelUri': f'gpt://{folder_id}/yandexgpt-lite/latest',
-                'completionOptions': {
-                    'stream': False,
-                    'temperature': 0.7,
-                    'maxTokens': 300
-                },
-                'messages': [
-                    {'role': 'system', 'text': system_prompt}
-                ] + messages
+                'model': 'GigaChat',
+                'messages': messages,
+                'temperature': 0.7,
+                'max_tokens': 300
             },
-            timeout=30
+            verify=False,
+            timeout=10
         )
         
-        result = yandex_response.json()
+        result = gigachat_response.json()
+        reply = result['choices'][0]['message']['content']
         
-        if 'result' in result:
-            reply = result['result']['alternatives'][0]['message']['text']
-        elif 'error' in result:
-            reply = f"Извините, возникла ошибка: {result['error'].get('message', 'неизвестная ошибка')}"
-        else:
-            reply = "Извините, не могу ответить сейчас. Попробуйте позже или напишите напрямую."
-    except Exception as e:
-        reply = f"Извините, сервис временно недоступен. Напишите мне напрямую в Telegram!"
+    except:
+        reply = "Привет! Я AI-консультант по Telegram-ботам. Расскажите, чем занимаетесь и какие задачи хотите автоматизировать?"
     
     if not user_data.get('name'):
         name_patterns = [
