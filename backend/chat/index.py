@@ -1,12 +1,37 @@
 import json
 import os
+import re
 from typing import Dict, Any, List
 import psycopg2
-from openai import OpenAI
+
+def generate_smart_reply(user_message: str, user_data: Dict, message_count: int) -> str:
+    '''Генерирует умный ответ на основе контекста'''
+    msg_lower = user_message.lower()
+    
+    if message_count == 1:
+        if any(word in msg_lower for word in ['салон', 'красот', 'маникюр', 'парикмахер']):
+            return "Отлично! Для салонов красоты я создаю ботов для автоматической записи. Клиенты сами выбирают мастера, услугу и время — без звонков менеджеру. Хотите, расскажу подробнее?"
+        elif any(word in msg_lower for word in ['школ', 'курс', 'обучени', 'образован']):
+            return "Супер! Для онлайн-школ делаю ботов с автозаписью на курсы, приемом оплаты и выдачей доступов. Ученики получают всё автоматически. Интересно?"
+        elif any(word in msg_lower for word in ['магазин', 'продаж', 'товар', 'интернет-магазин']):
+            return "Здорово! Могу сделать AI-консультанта для вашего магазина — он подбирает товары, отвечает на вопросы и оформляет заказы. До 70% запросов обрабатывает без менеджера. Расскажу больше?"
+        else:
+            return "Интересно! Расскажите подробнее, чем занимаетесь? Какие задачи хотите автоматизировать?"
+    
+    if 'да' in msg_lower or 'интересно' in msg_lower or 'расскажи' in msg_lower:
+        return "Отлично! Процесс простой: вы оставляете заявку → я готовлю сценарий работы бота → запускаем за 3-7 дней. Как вас зовут?"
+    
+    if not user_data.get('name'):
+        return "Приятно познакомиться! А как с вами связаться? Укажите ваш Telegram, пожалуйста."
+    
+    if not user_data.get('telegram'):
+        return "Отлично! Я свяжусь с вами в ближайшее время и подготовлю индивидуальное предложение. Ожидайте сообщение в Telegram!"
+    
+    return "Спасибо за заявку! Скоро свяжусь с вами в Telegram и обсудим детали. До скорой встречи! 👋"
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: AI чат-бот консультант для продажи ботов и сбора заявок
+    Business: Чат-бот консультант для продажи ботов и сбора заявок
     Args: event - dict с message, messages, userData
     Returns: HTTP response с reply и обновленными userData
     '''
@@ -29,73 +54,55 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     chat_history: List[Dict] = body.get('messages', [])
     user_data: Dict = body.get('userData', {})
     
-    client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+    message_count = len([m for m in chat_history if m['role'] == 'user']) + 1
     
-    system_prompt = """Ты AI-консультант по автоматизации бизнеса через Telegram-ботов и AI-агентов.
-
-Твоя задача:
-1. Понять нишу клиента и его боли
-2. Предложить подходящее решение (бот для записи, AI-консультант, интеграция с CRM и т.д.)
-3. Собрать контакты: имя, Telegram, ниша бизнеса
-4. Мотивировать оставить заявку
-
-Стиль общения:
-- Дружелюбный и профессиональный
-- Короткие сообщения (2-3 предложения)
-- Задавай уточняющие вопросы
-- Покажи выгоду и результаты
-
-Если собрал имя, telegram и нишу - предложи оставить заявку и попрощайся.
-"""
-    
-    messages = [{'role': 'system', 'content': system_prompt}]
-    
-    for msg in chat_history:
-        messages.append({
-            'role': msg['role'],
-            'content': msg['content']
-        })
-    
-    messages.append({'role': 'user', 'content': user_message})
-    
-    completion = client.chat.completions.create(
-        model='gpt-4o-mini',
-        messages=messages,
-        temperature=0.7,
-        max_tokens=300
-    )
-    
-    reply = completion.choices[0].message.content
-    
-    if not user_data.get('name') and any(word in user_message.lower() for word in ['меня зовут', 'я ', 'имя']):
-        words = user_message.split()
-        for i, word in enumerate(words):
-            if word.lower() in ['зовут', 'я'] and i + 1 < len(words):
-                user_data['name'] = words[i + 1].strip('.,!?')
+    if not user_data.get('name'):
+        name_patterns = [
+            r'(?:меня зовут|я\s+)([А-ЯЁа-яё]+)',
+            r'^([А-ЯЁ][а-яё]+)$'
+        ]
+        for pattern in name_patterns:
+            match = re.search(pattern, user_message)
+            if match:
+                user_data['name'] = match.group(1).capitalize()
                 break
     
-    if not user_data.get('telegram') and ('@' in user_message or 'telegram' in user_message.lower()):
-        parts = user_message.split()
-        for part in parts:
-            if part.startswith('@'):
-                user_data['telegram'] = part
+    if not user_data.get('telegram'):
+        telegram_patterns = [
+            r'@(\w+)',
+            r't\.me/(\w+)',
+            r'telegram:\s*@?(\w+)'
+        ]
+        for pattern in telegram_patterns:
+            match = re.search(pattern, user_message, re.IGNORECASE)
+            if match:
+                user_data['telegram'] = '@' + match.group(1).lstrip('@')
                 break
     
     if not user_data.get('niche'):
-        niches = ['салон', 'школа', 'магазин', 'агентство', 'консультант', 'эксперт', 'услуг']
-        for niche in niches:
-            if niche in user_message.lower():
-                user_data['niche'] = user_message
+        niches = {
+            'салон': ['салон', 'красот', 'маникюр', 'парикмахер', 'барбер'],
+            'онлайн-школа': ['школ', 'курс', 'обучени', 'образован', 'тренинг'],
+            'магазин': ['магазин', 'продаж', 'товар'],
+            'агентство': ['агентство', 'маркетинг'],
+            'консультант': ['консультант', 'эксперт', 'коуч']
+        }
+        for niche_name, keywords in niches.items():
+            if any(kw in user_message.lower() for kw in keywords):
+                user_data['niche'] = niche_name
                 break
     
-    if all([user_data.get('name'), user_data.get('telegram'), user_data.get('niche')]):
+    reply = generate_smart_reply(user_message, user_data, message_count)
+    
+    if all([user_data.get('name'), user_data.get('telegram')]):
         try:
             conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO leads (name, telegram, niche, created_at)
                 VALUES (%s, %s, %s, NOW())
-            """, (user_data['name'], user_data['telegram'], user_data['niche']))
+                ON CONFLICT DO NOTHING
+            """, (user_data['name'], user_data['telegram'], user_data.get('niche', 'не указана')))
             conn.commit()
             cur.close()
             conn.close()
