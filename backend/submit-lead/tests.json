@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Submit lead successfully",
+      "method": "POST",
+      "body": {
+        "name": "Тест",
+        "telegram": "@test",
+        "niche": "тестовая ниша"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

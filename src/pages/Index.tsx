@@ -10,7 +10,7 @@ import ChatBot from '@/components/ChatBot';
 
 const Index = () => {
   const { toast } = useToast();
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(true);
   const [isChatMinimized, setIsChatMinimized] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
@@ -18,13 +18,26 @@ const Index = () => {
     niche: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Заявка отправлена!",
-      description: "Скоро свяжусь с вами в Telegram",
-    });
-    setFormData({ name: '', telegram: '', niche: '' });
+    try {
+      await fetch('https://functions.poehali.dev/cbc9f536-7deb-436b-acb9-1f1693d80d19', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      toast({
+        title: "Заявка отправлена!",
+        description: "Скоро свяжусь с вами в Telegram",
+      });
+      setFormData({ name: '', telegram: '', niche: '' });
+    } catch (error) {
+      toast({
+        title: "Ошибка",
+        description: "Попробуйте позже или напишите напрямую",
+        variant: "destructive"
+      });
+    }
   };
 
   const services = [
@@ -126,12 +139,21 @@ const Index = () => {
             
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {services.map((service, i) => (
-                <Card key={i} className="glass glass-hover p-6 space-y-4 border-border/50">
-                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-                    <Icon name={service.icon as any} size={24} className="text-cyan-400" />
+                <Card 
+                  key={i} 
+                  className="glass glass-hover p-6 space-y-4 border-border/50 group cursor-pointer transition-all hover:scale-105 hover:border-cyan-500/50"
+                  style={{
+                    animationDelay: `${i * 0.1}s`
+                  }}
+                >
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform group-hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]">
+                    <Icon name={service.icon as any} size={32} className="text-cyan-400 group-hover:text-cyan-300" />
                   </div>
-                  <h3 className="text-xl font-semibold">{service.title}</h3>
-                  <p className="text-muted-foreground">{service.desc}</p>
+                  <h3 className="text-xl font-semibold group-hover:text-cyan-400 transition-colors">{service.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{service.desc}</p>
+                  <div className="pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="h-0.5 w-full bg-gradient-to-r from-cyan-500/0 via-cyan-500/50 to-cyan-500/0"></div>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -147,12 +169,21 @@ const Index = () => {
             
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {segments.map((segment, i) => (
-                <Card key={i} className="glass glass-hover p-6 space-y-3 text-center border-border/50">
-                  <div className="text-4xl mb-2">
-                    <Icon name={segment.icon as any} size={40} className="mx-auto text-cyan-400" />
+                <Card 
+                  key={i} 
+                  className="glass glass-hover p-8 space-y-4 text-center border-border/50 group cursor-pointer transition-all hover:scale-105 hover:border-cyan-500/50 relative overflow-hidden"
+                  style={{
+                    animationDelay: `${i * 0.15}s`
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative">
+                    <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all group-hover:shadow-[0_0_30px_rgba(34,211,238,0.4)]">
+                      <Icon name={segment.icon as any} size={48} className="text-cyan-400 group-hover:text-cyan-300" />
+                    </div>
+                    <h3 className="text-xl font-bold group-hover:text-cyan-400 transition-colors mb-2">{segment.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{segment.desc}</p>
                   </div>
-                  <h3 className="text-lg font-semibold">{segment.title}</h3>
-                  <p className="text-sm text-muted-foreground">{segment.desc}</p>
                 </Card>
               ))}
             </div>

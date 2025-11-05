@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "name": "Get leads list",
+      "method": "GET",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "leads": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
